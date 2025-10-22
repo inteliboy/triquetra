@@ -14,6 +14,7 @@ Triquetra uses:
 * An official EP cab update for Enablement Package.
 * An ESD update made from CU update for the Cumulative Update.
 Those updates come from UUP. I the use various scripts to extract WIM+PSF from the CU update, convert that to WIM and then to ESD to save space and bandwith.
+* https://updates.smce.pl repository hosted with h5ai: login w11updater, password w11updater
 
 Triquetra will:
 * Create and operate in the C:\ProgramData\triquetra folder for updating itself, downloading updates and storing triquetra.log file.
