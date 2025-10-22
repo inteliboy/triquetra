@@ -1,6 +1,7 @@
 # Triquetra
 Triquetra Updater for Windows
 Software written in Python and compiled to an exe with Nuitka.
+Due to the nature of the program and lack of the certificate it might be flagged by some AV software. - https://www.virustotal.com/gui/file/e9c7d3524dbfe316a0d857ec2105beb883186899f1d855ea52eec0671180f101
 
 Triquetra uses:
 * An official SSU cab updates for Servicing Stack.
