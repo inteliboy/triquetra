@@ -5,6 +5,8 @@ Software written in Python and compiled to an exe with Nuitka.
 First of all I am no programmer apart from ocasional batch scripting, however, in the age of AI anyone with an idea can create something.
 Personally I always disabled Windows Update, as I prefer installing updates manually and hate Windows for updating drivers on its own. For some it is convenient but that is not I want.
 I will try to add new features when I can, however, some tasks might be beyond me.
+I try to keep up with the updates so new builds in theory should appear faster then in Windows Update - especially considering that latest builds in most cases will be Preview Updates.
+Name and logo has been inspired by the German TV show Dark on Netflix.
 
 Triquetra uses:
 * An official SSU cab updates for Servicing Stack.
