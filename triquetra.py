@@ -107,7 +107,13 @@ def check_not_server_os():
 
 
 # ----- Logging helper -----
-LOG_FILE = os.path.join(tempfile.gettempdir(), "triquetra.log")
+PROGRAMDATA_DIR = r"C:\ProgramData\triquetra"
+os.makedirs(PROGRAMDATA_DIR, exist_ok=True)
+
+# Use ProgramData for everything (logs, downloads, temp files)
+LOG_FILE = os.path.join(PROGRAMDATA_DIR, "triquetra.log")
+TMP_DIR = PROGRAMDATA_DIR
+
 
 
 def now_ts() -> str:
@@ -479,7 +485,7 @@ def main():
     ctypes.windll.kernel32.SetConsoleTitleW("Triquetra Updater")
 
     # --- Show version info ---
-    log("Triquetra Updater 1.6.4")
+    log("Triquetra Updater 1.6.5")
 
     # Elevation
 #    if not is_admin():
@@ -677,9 +683,8 @@ def main():
     selected_msu = msu_candidates[0] if msu_candidates else None
     selected_ndp = ndp_candidates[0] if ndp_candidates else None
 
-    tmpdir = os.path.join(tempfile.gettempdir(), "triquetra")
+    tmpdir = TMP_DIR
     os.makedirs(tmpdir, exist_ok=True)
-    #    log(f"Using temp dir: {tmpdir}")
 
     # Install MSU if present
     if selected_msu:
@@ -834,6 +839,7 @@ if __name__ == "__main__":
         print("This program is intended to run on Windows.")
         sys.exit(1)
     main()
+
 
 
 
