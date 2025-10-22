@@ -32,6 +32,7 @@ try:
 except Exception:
     print("Missing required modules. Install them with:")
     print("  python -m pip install requests beautifulsoup4 tqdm")
+    input("Press Enter to exit...")
     sys.exit(1)
 
 # ----- Suppress InsecureRequestWarning -----
@@ -149,6 +150,7 @@ def elevate_and_exit():
         sys.exit(0)
     except Exception as e:
         log(f"Failed to relaunch elevated: {e}")
+        input("Press Enter to exit...")
         sys.exit(1)
 
 
@@ -224,6 +226,7 @@ def try_mirrors(paths: List[str], auth: Optional[Tuple[str, str]]) -> str:
         except Exception as e:
             log(f"Server failed: {base} ({e})")
     log("All servers failed. Exiting.")
+    input("Press Enter to exit...")
     sys.exit(1)
 
 # ----- HTTP helpers -----
@@ -510,7 +513,7 @@ def check_and_offer_enablement_package(local_major, local_parts, auth, arch, arg
                 else:
                     log(f"{ep_prompt} Enablement Package installed successfully.")
         else:
-            log(f"{ep_prompt} Enablement Package declined by user.")
+            log(f"Installation of the {ep_prompt} Enablement Package declined.")
     else:
         reason = ""
         if display_version == ep_prompt:
@@ -535,17 +538,17 @@ def main():
     # --- Add separator in log only ---
     log("=" * 80, console=False)
     
-    # Optional cleanup: silently remove any leftover updater files
-    try:
-        shutil.rmtree(r"C:\ProgramData\triquetra", ignore_errors=True)
-    except Exception:
-        pass
+    ## Optional cleanup: silently remove any leftover updater files
+    #try:
+    #    shutil.rmtree(r"C:\ProgramData\triquetra", ignore_errors=True)
+    #except Exception:
+    #    pass
 
     # --- Set window title ---
     ctypes.windll.kernel32.SetConsoleTitleW("Triquetra Updater")
 
     # --- Show version info ---
-    log("Triquetra Updater 1.6.6")
+    log("Triquetra Updater 1.6.9")
 
     # Elevation
 #    if not is_admin():
@@ -571,11 +574,13 @@ def main():
     proceed = input("Proceed with checking for updates? [y/N]: ").strip().lower()
     if proceed not in ("y", "yes"):
         log("Update cancelled by user.")
+        input("Press Enter to exit...")
         sys.exit(0)
 
     full_ver = get_ntoskrnl_file_version()
     if not full_ver:
         log("ERROR: could not read ntoskrnl.exe version")
+        input("Press Enter to exit...")
         sys.exit(1)
 
     short_local, local_parts = normalize_local_to_short(full_ver)
@@ -601,11 +606,13 @@ def main():
 
     if not base_url or not html:
         log("ERROR: Could not fetch from any update server.")
+        input("Press Enter to exit...")
         sys.exit(1)
 
     folders = parse_h5ai_index_for_folders(html)
     if not folders:
         log("No build-like folders found.")
+        input("Press Enter to exit...")
         sys.exit(1)
 
     # Determine local major build
@@ -624,6 +631,7 @@ def main():
     same_branch = [f for f in folders if int(f.split(".")[0]) == local_major]
     if not same_branch:
         log(f"No updates found in the same branch as local build {local_major}.")
+        input("Press Enter to exit...")
         sys.exit(1)
         
     # --- Filter out incomplete builds ---
@@ -638,6 +646,7 @@ def main():
 
     if not complete_builds:
         log("No builds found that have been completely uploaded to the server.")
+        input("Press Enter to exit...")
         sys.exit(0)
 
     same_branch = complete_builds  
@@ -655,10 +664,12 @@ def main():
         elif override in folders:
             log(f"ERROR: Specified build {override} exists but is incomplete or wrong branch.")
             log(f"Available fully uploaded builds in branch: {', '.join(same_branch)}")
+            input("Press Enter to exit...")
             sys.exit(1)
         else:
             log(f"ERROR: Specified build {override} not found on server.")
             log(f"Available builds: {', '.join(folders)}")
+            input("Press Enter to exit...")
             sys.exit(1)
     else:
         # Custom logic for baseline build if needed (e.g., 26100.1742)
@@ -672,6 +683,7 @@ def main():
                     log(f"Forcing update to baseline build {baseline_build}")
                 else:
                     log(f"ERROR: Required build {baseline_build} not found on server.")
+                    input("Press Enter to exit...")
                     sys.exit(1)
         if not best:
             # pick the latest build in same_branch
@@ -688,10 +700,12 @@ def main():
             log("Checking for Enablement Package applicability...")
             arch = get_arch_from_registry()
             check_and_offer_enablement_package(local_major, local_parts, auth, arch, args)
+            input("Press Enter to exit...")
             sys.exit(0)
         log("User chose to reinstall the same build.")
     elif cmpres < 0 and not args.build:
         log("Local build newer than remote, exiting.")
+        input("Press Enter to exit...")
         sys.exit(0)
 
 
@@ -700,7 +714,8 @@ def main():
         f"Do you want to download and install {best} updates? [y/N]: "
     ).strip().lower()
     if proceed_download not in ("y", "yes"):
-        log("Update cancelled by user before downloading files.")
+        log("Update cancelled before downloading files.")
+        input("Press Enter to exit...")
         sys.exit(0)
 
     # Architecture detection
@@ -726,11 +741,13 @@ def main():
         folder_html = fetch_text(folder_url, auth=auth)
     except Exception as e:
         log(f"Failed to fetch architecture folder: {e}")
+        input("Press Enter to exit...")
         sys.exit(1)
 
     files = parse_h5ai_files(folder_html)
     if not files:
         log("No files found in architecture folder.")
+        input("Press Enter to exit...")
         sys.exit(1)
 
     cab_candidates = [f for f in files if re.search(r"(?i)\bssu.*\.cab$", f)]
@@ -772,6 +789,7 @@ def main():
             rc = powershell_add_package(msu_path)
             if rc != 0:
                 log(f"MSU installation failed with code {rc}")
+                input("Press Enter to exit...")
                 sys.exit(1)
 
             # Install NDP AFTER MSU
@@ -783,6 +801,7 @@ def main():
     else:
         if not selected_cab or not selected_esd:
             log("Missing CAB or ESD, cannot continue.")
+            input("Press Enter to exit...")
             sys.exit(1)
 
         # Download CAB first
@@ -812,6 +831,7 @@ def main():
             rc1 = powershell_add_package(cab_path)
             if rc1 != 0:
                 log(f"CAB installation failed with code {rc1}")
+                input("Press Enter to exit...")
                 sys.exit(1)
 
             time.sleep(5)
@@ -825,6 +845,7 @@ def main():
             rc2 = powershell_add_package(esd_path)
             if rc2 != 0:
                 log(f"ESD installation failed with code {rc2}")
+                input("Press Enter to exit...")
                 sys.exit(1)
 
             # --- NDP installation AFTER ESD ---
@@ -859,35 +880,9 @@ def main():
 if __name__ == "__main__":
     if sys.platform != "win32":
         print("This program is intended to run on Windows.")
+        input("Press Enter to exit...")
         sys.exit(1)
     main()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
