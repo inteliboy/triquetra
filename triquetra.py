@@ -461,6 +461,66 @@ def powershell_add_package(package_path: str) -> int:
     proc.wait()
     return proc.returncode
 
+def check_and_offer_enablement_package(local_major, local_parts, auth, arch, args):
+    """Check DisplayVersion and offer Enablement Package if eligible."""
+    display_version = get_display_version()
+    tmpdir = TMP_DIR
+    os.makedirs(tmpdir, exist_ok=True)
+
+    EP_URLS = {
+        "22621": {
+            "amd64": "https://updates.smce.pl/EP/amd64/Windows11.0-KB5027397-x64.cab",
+            "arm64": "https://updates.smce.pl/EP/arm64/Windows11.0-KB5027397-arm64.cab",
+        },
+        "26100": {
+            "amd64": "https://updates.smce.pl/EP/amd64/Windows11.0-KB5054156-x64.cab",
+            "arm64": "https://updates.smce.pl/EP/arm64/Windows11.0-KB5054156-arm64.cab",
+        },
+    }
+
+    offer_ep = False
+    ep_branch = ""
+    ep_prompt = ""
+    ep_min_build = 0
+
+    if display_version:
+        if local_major == 22621:
+            ep_branch = "22621"
+            ep_prompt = "23H2"
+            ep_min_build = 2506
+            if display_version == "22H2" and len(local_parts) > 1 and local_parts[1] >= ep_min_build:
+                offer_ep = True
+
+        elif local_major == 26100:
+            ep_branch = "26100"
+            ep_prompt = "25H2"
+            ep_min_build = 5074
+            if display_version == "24H2" and len(local_parts) > 1 and local_parts[1] >= ep_min_build:
+                offer_ep = True
+
+    if offer_ep:
+        ans = input(f"Do you want to install the {ep_prompt} Enablement Package? [y/N]: ").strip().lower()
+        if ans in ("y", "yes"):
+            ep_url = EP_URLS[ep_branch][arch]
+            ep_path = download_file(ep_url, tmpdir, auth)
+            if not args.dry_run:
+                rc = powershell_add_package(ep_path)
+                if rc != 0:
+                    log(f"Enablement Package installation failed with code {rc}")
+                else:
+                    log(f"{ep_prompt} Enablement Package installed successfully.")
+        else:
+            log(f"{ep_prompt} Enablement Package declined by user.")
+    else:
+        reason = ""
+        if display_version == ep_prompt:
+            reason = f"already at {display_version}"
+        elif len(local_parts) > 1 and local_parts[1] < ep_min_build:
+            reason = f"build below {ep_branch}.{ep_min_build}"
+        else:
+            reason = "unknown reason"
+        log(f"Enablement Package not offered: {reason}")
+
 
 # ----- Main program -----
 def main():
@@ -485,7 +545,7 @@ def main():
     ctypes.windll.kernel32.SetConsoleTitleW("Triquetra Updater")
 
     # --- Show version info ---
-    log("Triquetra Updater 1.6.5")
+    log("Triquetra Updater 1.6.6")
 
     # Elevation
 #    if not is_admin():
@@ -625,7 +685,9 @@ def main():
     if cmpres == 0 and not args.build:
         ans = input(f"Local build equals remote build. Reinstall anyway? [y/N]: ").strip().lower()
         if ans not in ("y", "yes"):
-            log("Exiting.")
+            log("Checking for Enablement Package applicability...")
+            arch = get_arch_from_registry()
+            check_and_offer_enablement_package(local_major, local_parts, auth, arch, args)
             sys.exit(0)
         log("User chose to reinstall the same build.")
     elif cmpres < 0 and not args.build:
@@ -771,51 +833,11 @@ def main():
                 if rc_ndp != 0:
                     log(f"NDP installation failed with code {rc_ndp}")
 
-    # ----- Enablement Package check based on DisplayVersion + minimum build -----
-    display_version = get_display_version()
-    if display_version:
-        ep_branch = ""
-        ep_prompt = ""
-        ep_min_build = 0
-        offer_ep = False
+    # ----- Enablement Package check -----
+    arch = get_arch_from_registry()
+    check_and_offer_enablement_package(local_major, local_parts, auth, arch, args)
 
-        if local_major == 22621:
-            ep_branch = "22621"
-            ep_prompt = "23H2"
-            ep_min_build = 2506  # minimum UBR for 23H2 EP
-            if display_version == "22H2" and len(local_parts) > 1 and local_parts[1] >= ep_min_build:
-                offer_ep = True
-
-        elif local_major == 26100:
-            ep_branch = "26100"
-            ep_prompt = "25H2"
-            ep_min_build = 5074  # minimum UBR for 25H2 EP
-            if display_version == "24H2" and len(local_parts) > 1 and local_parts[1] >= ep_min_build:
-                offer_ep = True
-
-    if offer_ep:
-        ans = input(f"Do you want to install the {ep_prompt} Enablement Package? [y/N]: ").strip().lower()
-        if ans in ("y", "yes"):
-            ep_url = EP_URLS[ep_branch][arch]
-            ep_path = download_file(ep_url, tmpdir, auth)
-            if not args.dry_run:
-                rc = powershell_add_package(ep_path)
-                if rc != 0:
-                    log(f"Enablement Package installation failed with code {rc}")
-    else:
-        reason = ""
-        if display_version == ep_prompt:
-            reason = f"already at {display_version}"
-        elif len(local_parts) > 1 and local_parts[1] < ep_min_build:
-            reason = f"build below {ep_branch}.{ep_min_build}"
-        else:
-            reason = "unknown reason"
-        log(f"Enablement Package not offered: {reason}")
-
-
-
-
-    log("Update finished successfully. A reboot may be required.")
+    log("Update finished successfully. A reboot is required.")
     clean_ans = input("Do you want to clean downloaded files? [y/N]: ").strip().lower()
     if clean_ans in ("y", "yes"):
         try:
