@@ -30,6 +30,7 @@ Triquetra will:
 * Force installing build 26100.1742 - KB5043080 baseline if the Windows version is below that.
 * Offer installing 23H2 / 25H2 Enablemenet Package (EP) when already running at least the minimum required Windows build - 22621.2506 / 26100.5074.
 * Ask if you want to clean triquetra directory from the downloaded updates. If you choose no to do that on a subsequent run those updates will have their checksum verified and if they can be used, they will.
+* Not download an incompletely uploaded build. There is a safety measure - a non_complete file that when placed in the build folder informs Triquetra that this update should be ignored for now as its beign uploaded to the server.
 * Offer a reboot
 
 Some screenshots of Triquetra in action.
