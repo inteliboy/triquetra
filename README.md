@@ -1,5 +1,6 @@
 # Triquetra
 Triquetra Updater for Windows
+
 Software written in Python and compiled to an exe with Nuitka.
 
 First of all I am no programmer apart from ocasional batch scripting, however, in the age of AI anyone with an idea can create something.
