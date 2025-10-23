@@ -9,6 +9,9 @@ I will try to add new features when I can, however, some tasks might be beyond m
 I try to keep up with the updates so new builds in theory should appear faster then in Windows Update - especially considering that latest builds in most cases will be Preview Updates.
 Name and logo has been inspired by the German TV show Dark on Netflix.
 
+Triquetra in action
+![triquetra](https://github.com/user-attachments/assets/8342ee70-8709-44cd-88e1-264019b625e8)
+
 Triquetra uses:
 * An official SSU cab updates for Servicing Stack.
 * An official NDP cab update for .NET Framework.
@@ -33,9 +36,6 @@ Triquetra will:
 * Ask if you want to clean triquetra directory from the downloaded updates. If you choose no to do that on a subsequent run those updates will have their checksum verified and if they can be used, they will.
 * Not download an incompletely uploaded build. There is a safety measure - a non_complete file that when placed in the build folder informs Triquetra that this update should be ignored for now as its beign uploaded to the server.
 * Offer a reboot
-
-Triquetra in action
-![triquetra](https://github.com/user-attachments/assets/8342ee70-8709-44cd-88e1-264019b625e8)
 
 Due to the nature of the program and lack of the certificate it might be flagged by some AV software. - https://www.virustotal.com/gui/file/e9c7d3524dbfe316a0d857ec2105beb883186899f1d855ea52eec0671180f101
 <img width="1370" height="228" alt="obraz" src="https://github.com/user-attachments/assets/255c6baf-6c75-40e7-ba0e-c1bebf36ceee" />
