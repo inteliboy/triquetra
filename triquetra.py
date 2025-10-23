@@ -552,12 +552,12 @@ def check_and_offer_enablement_package(local_major, local_parts, auth, arch, arg
     else:
         reason = ""
         if display_version == ep_prompt:
-            reason = f"already at {display_version}"
+            reason = f"already being on {display_version}"
         elif len(local_parts) > 1 and local_parts[1] < ep_min_build:
-            reason = f"build below {ep_branch}.{ep_min_build}"
+            reason = f"currently installed build below {ep_branch}.{ep_min_build}"
         else:
             reason = "unknown reason"
-        log(f"Enablement Package not offered: {reason}")
+        log(f" Not offering Enablement Package due to {reason}")
 
 
 # ----- Main program -----
@@ -583,7 +583,7 @@ def main():
     ctypes.windll.kernel32.SetConsoleTitleW("Triquetra Updater")
 
     # --- Show version info ---
-    log("Triquetra Updater 1.7.5")
+    log("Triquetra Updater 1.7.6")
 
     # Elevation
 #    if not is_admin():
@@ -929,3 +929,6 @@ if __name__ == "__main__":
         input("Press Enter to exit...")
         sys.exit(1)
     main()
+
+
+

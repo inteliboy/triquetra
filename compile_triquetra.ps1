@@ -82,6 +82,9 @@ if (!(Test-Path "triquetra.exe")) {
     exit 1
 }
 
+# >>> Added signing step before Step 3 <<<
+& "C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtool.exe" sign /n "SMCE" /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 "triquetra.exe"
+
 # Step 3: Generate MD5 checksum
 $hash = Get-FileHash -Algorithm MD5 "triquetra.exe"
 "$($hash.Hash) *triquetra.exe" | Out-File "triquetra.exe.md5" -Encoding ASCII
