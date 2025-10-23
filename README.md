@@ -34,6 +34,7 @@ Triquetra will:
 * Not download an incompletely uploaded build. There is a safety measure - a non_complete file that when placed in the build folder informs Triquetra that this update should be ignored for now as its beign uploaded to the server.
 * Offer a reboot
 
+![triquetra](https://github.com/user-attachments/assets/8342ee70-8709-44cd-88e1-264019b625e8)
 Some screenshots of Triquetra in action.
 <img width="1115" height="628" alt="Screen1" src="https://github.com/user-attachments/assets/5407abd1-2dff-4718-95bf-23fde54aa585" />
 <img width="1115" height="628" alt="Screen2" src="https://github.com/user-attachments/assets/73b253dd-875c-4dc3-a650-d6bc94222c36" />
@@ -42,4 +43,5 @@ Some screenshots of Triquetra in action.
 
 Due to the nature of the program and lack of the certificate it might be flagged by some AV software. - https://www.virustotal.com/gui/file/e9c7d3524dbfe316a0d857ec2105beb883186899f1d855ea52eec0671180f101
 <img width="1370" height="228" alt="obraz" src="https://github.com/user-attachments/assets/255c6baf-6c75-40e7-ba0e-c1bebf36ceee" />
+
 
