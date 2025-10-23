@@ -1,11 +1,6 @@
 ﻿#!/usr/bin/env python3
 r"""
 triquetra.py
-Windows 11 updater using h5ai-hosted files (SSU + ESD or MSU)
-- Downloads to %TEMP%\triquetra, checks MD5 hash to skip downloads
-- Installs updates via DISM
-- Shows simplified tqdm progress bars for installation
-- Logs all messages with timestamps to C:\Windows\Logs\Update.log
 """
 
 import os
@@ -28,10 +23,9 @@ try:
     import requests
     from bs4 import BeautifulSoup
     from requests.auth import HTTPBasicAuth
-    from tqdm import tqdm
 except Exception:
     print("Missing required modules. Install them with:")
-    print("  python -m pip install requests beautifulsoup4 tqdm")
+    print("  python -m pip install requests beautifulsoup4")
     input("Press Enter to exit...")
     sys.exit(1)
 
@@ -299,10 +293,16 @@ def file_md5(path: str) -> str:
 
 
 def download_file(url: str, dest_dir: str, auth: Optional[Tuple[str, str]]) -> str:
+    """Download a file with clean single-line progress and synced log output."""
+    import requests, itertools, sys, time, os, urllib.parse
+    from requests.auth import HTTPBasicAuth
+
     fname = os.path.basename(urllib.parse.unquote(url))
     dest_path = os.path.join(dest_dir, fname)
     md5_url = url + ".md5"
     need_download = True
+
+    # --- Check MD5 ---
     if os.path.exists(dest_path):
         try:
             md5_server = fetch_md5(md5_url, auth)
@@ -312,28 +312,59 @@ def download_file(url: str, dest_dir: str, auth: Optional[Tuple[str, str]]) -> s
                 need_download = False
         except Exception:
             log(f"Could not verify hash for {fname}, will redownload.")
-    if need_download:
-        log(f"Downloading {fname}...")
-        auth_obj = HTTPBasicAuth(*auth) if auth else None
-        with requests.get(url, stream=True, auth=auth_obj, verify=True) as r:
-            r.raise_for_status()
-            total = r.headers.get("Content-Length")
-            total_i = int(total) if total and total.isdigit() else None
-            with open(dest_path, "wb") as f, tqdm(
-                total=total_i,
-                unit="B",
-                unit_scale=True,
-                desc=f"{fname}",
-                ncols=80,
-                leave=True,
-            ) as bar:
-                for chunk in r.iter_content(chunk_size=1024 * 1024):
-                    if not chunk:
-                        continue
-                    f.write(chunk)
-                    bar.update(len(chunk))
-    return dest_path
 
+    if not need_download:
+        return dest_path
+
+    log(f"Downloading {fname}...")  # log start
+    auth_obj = HTTPBasicAuth(*auth) if auth else None
+
+    with requests.get(url, stream=True, auth=auth_obj, verify=True) as r:
+        r.raise_for_status()
+        total = r.headers.get("Content-Length")
+        total_i = int(total) if total and total.isdigit() else None
+        downloaded = 0
+        chunk_size = 1024 * 1024  # 1MB
+        spinner = itertools.cycle(["|", "/", "-", "\\"])
+        start_time = time.time()
+
+        with open(dest_path, "wb") as f:
+            while True:
+                chunk = r.raw.read(chunk_size)
+                if not chunk:
+                    break
+                f.write(chunk)
+                downloaded += len(chunk)
+                elapsed = time.time() - start_time
+                speed = downloaded / 1024 / 1024 / elapsed if elapsed > 0 else 0
+
+                if total_i:
+                    pct = (downloaded / total_i) * 100
+                    total_str = (
+                        f"{total_i / 1024 / 1024 / 1024:.2f}G"
+                        if total_i > 1024**3
+                        else f"{total_i / 1024 / 1024:.2f}M"
+                    )
+                else:
+                    pct, total_str = 0, "?"
+
+                done_str = (
+                    f"{downloaded / 1024 / 1024 / 1024:.2f}G"
+                    if downloaded > 1024**3
+                    else f"{downloaded / 1024 / 1024:.2f}M"
+                )
+
+                sys.stdout.write(
+                    f"\rDownloading {fname} {next(spinner)} {pct:5.1f}% {done_str}/{total_str} {speed:5.1f}MB/s"
+                )
+                sys.stdout.flush()
+
+        # Replace progress line with final "... Done" via log()
+        sys.stdout.write("\r" + " " * 120 + "\r")  # clear line
+        sys.stdout.flush()
+        log(f"Finished downloading {fname}")
+
+    return dest_path
 
 # ----- Utility functions -----
 def is_frozen() -> bool:
@@ -423,10 +454,8 @@ def self_update(remote_url: str, auth: Optional[Tuple[str, str]]) -> bool:
 
 
 def powershell_add_package(package_path: str) -> int:
-    """Install a Windows package (.cab or .msu) silently with PowerShell and tqdm."""
-    import subprocess
-    from tqdm import tqdm
-    import os
+    """Install a Windows package (.cab/.msu) with a single clean spinner line and synced logging."""
+    import subprocess, itertools, sys, time, os
 
     ps_cmd = [
         "powershell",
@@ -446,23 +475,29 @@ def powershell_add_package(package_path: str) -> int:
         creationflags=subprocess.CREATE_NO_WINDOW,
     )
 
-    # Fake progress bar (PowerShell output is not flush-friendly)
-    with tqdm(
-        total=100,
-        desc=f"Installing {os.path.basename(package_path)}",
-        ncols=80,
-        leave=True,
-        bar_format="{desc}: {percentage:3.0f}%",
-    ) as bar:
-        while True:
-            line = proc.stdout.readline()
-            if line == "" and proc.poll() is not None:
-                break
-            bar.update(1)
-            if bar.n >= 100:
-                break
+    spinner = itertools.cycle(["|", "/", "-", "\\"])
+    pkg_name = os.path.basename(package_path)
+
+    log(f"Installing {pkg_name}...")  # log start
+
+    sys.stdout.write(f"Installing {pkg_name} ")
+    sys.stdout.flush()
+
+    while proc.poll() is None:
+        sys.stdout.write(next(spinner))
+        sys.stdout.flush()
+        time.sleep(0.1)
+        sys.stdout.write("\b")
+
     proc.wait()
+
+    # Replace spinner with final message via log()
+    sys.stdout.write("\r" + " " * 120 + "\r")
+    sys.stdout.flush()
+    log(f"Finished installing {pkg_name}")
+
     return proc.returncode
+
 
 def check_and_offer_enablement_package(local_major, local_parts, auth, arch, args):
     """Check DisplayVersion and offer Enablement Package if eligible."""
@@ -548,7 +583,7 @@ def main():
     ctypes.windll.kernel32.SetConsoleTitleW("Triquetra Updater")
 
     # --- Show version info ---
-    log("Triquetra Updater 1.6.9")
+    log("Triquetra Updater 1.7.5")
 
     # Elevation
 #    if not is_admin():
@@ -735,7 +770,7 @@ def main():
     }
 
     folder_url = urllib.parse.urljoin(base_url, f"{best}/{arch}/")
-    log(f"Looking for update files in: {folder_url}")
+    log(f"Accesing {folder_url}")
 
     try:
         folder_html = fetch_text(folder_url, auth=auth)
@@ -859,13 +894,24 @@ def main():
     check_and_offer_enablement_package(local_major, local_parts, auth, arch, args)
 
     log("Update finished successfully. A reboot is required.")
-    clean_ans = input("Do you want to clean downloaded files? [y/N]: ").strip().lower()
+    
+    clean_ans = input("Do you want to remove downloaded update files? [y/N]: ").strip().lower()
     if clean_ans in ("y", "yes"):
-        try:
-            shutil.rmtree(tmpdir)
-            log("Temporary files removed.")
-        except Exception as e:
-            log(f"Failed to remove temporary files: {e}")
+        for item in os.listdir(tmpdir):
+            item_path = os.path.join(tmpdir, item)
+            # Skip the log file
+            if os.path.isfile(item_path) and item.lower() == "triquetra.log":
+                continue
+            try:
+                if os.path.isdir(item_path):
+                    shutil.rmtree(item_path)
+                    log(f"Removed folder: {item_path}")
+                else:
+                    os.remove(item_path)
+                    log(f"Removed file: {item_path}")
+            except Exception as e:
+                log(f"Failed to remove {item_path}: {e}")
+        log("Downloaded files removed.")
 
     reboot_ans = input("Reboot now? [y/N]: ").strip().lower()
     if reboot_ans in ("y", "yes"):
@@ -883,6 +929,3 @@ if __name__ == "__main__":
         input("Press Enter to exit...")
         sys.exit(1)
     main()
-
-
-
