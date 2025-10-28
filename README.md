@@ -37,8 +37,9 @@ Triquetra will:
 * Not download an incompletely uploaded build. There is a safety measure - a non_complete file that when placed in the build folder informs Triquetra that this update should be ignored for now as its beign uploaded to the server.
 * Offer a reboot
 
-Some AV software still gives false positives.- https://www.virustotal.com/gui/file/86446151ed712b4a688c4439be094e03f25e8fca8843b8a732d454f7eb5c27b5
-<img width="1388" height="210" alt="obraz" src="https://github.com/user-attachments/assets/32783330-fdd6-4599-aee9-c375c5bb3c52" />
+Some AV software still gives false positives.- https://www.virustotal.com/gui/file/3403ac0c208805902a12c9a9e4a84e0848316bcd109fc63996c191885fed885b
+<img width="1577" height="544" alt="obraz" src="https://github.com/user-attachments/assets/59821637-efd3-4abf-a8f9-e125cf13c82e" />
+
 
 
 
