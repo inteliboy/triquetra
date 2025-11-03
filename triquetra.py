@@ -222,6 +222,53 @@ def try_mirrors(paths: List[str], auth: Optional[Tuple[str, str]]) -> str:
     log("All servers failed. Exiting.")
     input("Press Enter to exit...")
     sys.exit(1)
+    
+def choose_fastest_mirror(mirrors: List[str], auth: Optional[Tuple[str, str]]) -> str:
+    """
+    Test mirror download speeds using a small test file (e.g., speed.test)
+    and return the fastest one.
+    """
+    test_file = "speed.test"
+    results = []
+
+    for base in mirrors:
+        test_url = urllib.parse.urljoin(base, test_file)
+        log(f"Testing mirror speed...")
+        try:
+            start = time.time()
+            r = requests.get(test_url, auth=HTTPBasicAuth(*auth) if auth else None, timeout=10, stream=True, verify=True)
+            r.raise_for_status()
+
+            total_bytes = 0
+            for chunk in r.iter_content(chunk_size=65536):
+                if not chunk:
+                    break
+                total_bytes += len(chunk)
+                if total_bytes > 1024 * 1024:  # limit to first 1 MB
+                    break
+
+            elapsed = time.time() - start
+            if elapsed > 0:
+                speed_mbps = (total_bytes * 8) / (elapsed * 1024 * 1024)
+                results.append((speed_mbps, base))
+                log(f"{base} speed: {speed_mbps:.2f} Mbps")
+            else:
+                log(f"{base} returned instantaneously (skipping)")
+        except Exception as e:
+            log(f"Failed to test {base}: {e}")
+
+    if not results:
+        log("No mirrors responded successfully. Exiting.")
+        input("Press Enter to exit...")
+        sys.exit(1)
+
+    # Pick the one with the highest measured speed
+    results.sort(reverse=True, key=lambda x: x[0])
+    best_speed, best_mirror = results[0]
+    log(f"Selected fastest mirror: {best_mirror} ({best_speed:.2f} Mbps)")
+
+    return best_mirror
+
 
 # ----- HTTP helpers -----
 def fetch_text(url: str, auth: Optional[Tuple[str, str]], timeout: int = 30) -> str:
@@ -583,7 +630,7 @@ def main():
     ctypes.windll.kernel32.SetConsoleTitleW("Triquetra Updater")
 
     # --- Show version info ---
-    log("Triquetra Updater 1.7.7")
+    log("Triquetra Updater 1.7.8")
 
     # Elevation
 #    if not is_admin():
@@ -627,28 +674,32 @@ def main():
         "https://updates2.smce.pl/",         # mirror
     ]
 
-    base_url = None
+    # Automatically choose the fastest mirror
+    base_url = choose_fastest_mirror(mirror_candidates, auth)
+
     html = None
-
-    for url in mirror_candidates:
-        try:
-            html = fetch_text(url, auth=auth)
-            base_url = url
-            log(f"Using update server: {url}")
-            break
-        except Exception as e:
-            log(f"Failed to fetch from {url}: {e}")
-
-    if not base_url or not html:
-        log("ERROR: Could not fetch from any update server.")
+    try:
+        html = fetch_text(base_url, auth=auth)
+        log(f"Using update server: {base_url}")
+    except Exception as e:
+        log(f"Failed to fetch from chosen mirror {base_url}: {e}")
         input("Press Enter to exit...")
         sys.exit(1)
 
-    folders = parse_h5ai_index_for_folders(html)
+    # Parse folder list safely
+    folders = []
+    try:
+        folders = parse_h5ai_index_for_folders(html)
+    except Exception as e:
+        log(f"Failed to parse index page from {base_url}: {e}")
+        input("Press Enter to exit...")
+        sys.exit(1)
+
     if not folders:
-        log("No build-like folders found.")
+        log(f"No build-like folders found at {base_url}")
         input("Press Enter to exit...")
         sys.exit(1)
+
 
     # Determine local major build
     local_major = local_parts[0]
@@ -929,6 +980,7 @@ if __name__ == "__main__":
         input("Press Enter to exit...")
         sys.exit(1)
     main()
+
 
 
 
