@@ -226,46 +226,70 @@ def try_mirrors(paths: List[str], auth: Optional[Tuple[str, str]]) -> str:
 def choose_fastest_mirror(mirrors: List[str], auth: Optional[Tuple[str, str]]) -> str:
     """
     Test mirror download speeds using a small test file (e.g., speed.test)
-    and return the fastest one.
+    and return the fastest one, with a clean spinner and concise output.
     """
+    import itertools, sys, threading, time
+
     test_file = "speed.test"
     results = []
+    spinner_running = True
 
+    def spinner_func():
+        spinner = itertools.cycle(["|", "/", "-", "\\"])
+        while spinner_running:
+            sys.stdout.write(f"\rTesting mirrors speed... {next(spinner)}")
+            sys.stdout.flush()
+            time.sleep(0.1)
+
+    spinner_thread = threading.Thread(target=spinner_func)
+    spinner_thread.daemon = True
+    spinner_thread.start()
+
+    # --- Measure mirror speeds ---
     for base in mirrors:
         test_url = urllib.parse.urljoin(base, test_file)
-        log(f"Testing mirror speed...")
         try:
-            start = time.time()
-            r = requests.get(test_url, auth=HTTPBasicAuth(*auth) if auth else None, timeout=10, stream=True, verify=True)
+            r = requests.get(
+                test_url,
+                auth=HTTPBasicAuth(*auth) if auth else None,
+                timeout=10,
+                stream=True,
+                verify=True,
+            )
             r.raise_for_status()
 
             total_bytes = 0
+            t0 = time.time()
             for chunk in r.iter_content(chunk_size=65536):
                 if not chunk:
                     break
                 total_bytes += len(chunk)
-                if total_bytes > 1024 * 1024:  # limit to first 1 MB
+                if total_bytes > 1024 * 1024:  # only first ~1 MB
                     break
+            elapsed = time.time() - t0
+            speed_mbs = total_bytes / (elapsed * 1024 * 1024) if elapsed > 0 else 0
+            results.append((speed_mbs, base))
+        except Exception:
+            results.append((0, base))
 
-            elapsed = time.time() - start
-            if elapsed > 0:
-                speed_mbps = (total_bytes * 8) / (elapsed * 1024 * 1024)
-                results.append((speed_mbps, base))
-                log(f"{base} speed: {speed_mbps:.2f} Mbps")
-            else:
-                log(f"{base} returned instantaneously (skipping)")
-        except Exception as e:
-            log(f"Failed to test {base}: {e}")
+    # --- Stop spinner ---
+    spinner_running = False
+    spinner_thread.join(timeout=0.2)
+    sys.stdout.write("\rTesting mirrors speed...\n")
+    sys.stdout.flush()
 
-    if not results:
+    # --- Print results (compact, no blank lines) ---
+    for speed, base in results:
+        print(f"{base} speed: {speed_mbs:5.1f} MB/s")
+
+    # --- Pick the fastest ---
+    if not results or all(speed == 0 for speed, _ in results):
         log("No mirrors responded successfully. Exiting.")
         input("Press Enter to exit...")
         sys.exit(1)
 
-    # Pick the one with the highest measured speed
     results.sort(reverse=True, key=lambda x: x[0])
     best_speed, best_mirror = results[0]
-    log(f"Selected fastest mirror: {best_mirror} ({best_speed:.2f} Mbps)")
 
     return best_mirror
 
@@ -340,15 +364,100 @@ def file_md5(path: str) -> str:
 
 
 def download_file(url: str, dest_dir: str, auth: Optional[Tuple[str, str]]) -> str:
-    """Download a file with clean single-line progress and synced log output."""
+    """Download a file with progress and retry option if download fails."""
     import requests, itertools, sys, time, os, urllib.parse
     from requests.auth import HTTPBasicAuth
 
     fname = os.path.basename(urllib.parse.unquote(url))
     dest_path = os.path.join(dest_dir, fname)
     md5_url = url + ".md5"
-    need_download = True
+    max_retries = 3
 
+    while True:
+        try:
+            need_download = True
+
+            # --- Check MD5 if file exists ---
+            if os.path.exists(dest_path):
+                try:
+                    md5_server = fetch_md5(md5_url, auth)
+                    md5_local = file_md5(dest_path)
+                    if md5_local.lower() == md5_server.lower():
+                        log(f"{fname} already exists and hash matches.")
+                        need_download = False
+                except Exception:
+                    log(f"Could not verify hash for {fname}, will redownload.")
+
+            if not need_download:
+                return dest_path
+
+            log(f"Downloading {fname}...")
+            auth_obj = HTTPBasicAuth(*auth) if auth else None
+
+            with requests.get(url, stream=True, auth=auth_obj, verify=True, timeout=60) as r:
+                r.raise_for_status()
+                total = r.headers.get("Content-Length")
+                total_i = int(total) if total and total.isdigit() else None
+                downloaded = 0
+                chunk_size = 1024 * 1024  # 1MB
+                spinner = itertools.cycle(["|", "/", "-", "\\"])
+                start_time = time.time()
+
+                with open(dest_path, "wb") as f:
+                    for chunk in r.iter_content(chunk_size=chunk_size):
+                        if not chunk:
+                            continue
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        elapsed = time.time() - start_time
+                        speed = downloaded / 1024 / 1024 / elapsed if elapsed > 0 else 0
+
+                        if total_i:
+                            pct = (downloaded / total_i) * 100
+                            total_str = (
+                                f"{total_i / 1024 / 1024 / 1024:.2f}G"
+                                if total_i > 1024**3
+                                else f"{total_i / 1024 / 1024:.2f}M"
+                            )
+                        else:
+                            pct, total_str = 0, "?"
+
+                        done_str = (
+                            f"{downloaded / 1024 / 1024 / 1024:.2f}G"
+                            if downloaded > 1024**3
+                            else f"{downloaded / 1024 / 1024:.2f}M"
+                        )
+
+                        sys.stdout.write(
+                            f"\rDownloading {fname} {next(spinner)} {pct:5.1f}% {done_str}/{total_str} {speed:5.1f}MB/s"
+                        )
+                        sys.stdout.flush()
+
+            sys.stdout.write("\r" + " " * 120 + "\r")
+            sys.stdout.flush()
+            log(f"Finished downloading {fname}")
+
+            return dest_path
+
+        except Exception as e:
+            sys.stdout.write("\r" + " " * 120 + "\r")
+            sys.stdout.flush()
+            log(f"Download of {fname} failed: {e}")
+
+            # Ask user if they want to retry
+            ans = input(f"Download failed for {fname}. Retry? [y/N]: ").strip().lower()
+            if ans not in ("y", "yes"):
+                log(f"User chose not to retry {fname}. Aborting download.")
+                raise
+            else:
+                max_retries -= 1
+                if max_retries <= 0:
+                    log(f"Maximum retries reached for {fname}. Aborting.")
+                    raise
+                log(f"Retrying download of {fname}...")
+                time.sleep(3)
+
+   
     # --- Check MD5 ---
     if os.path.exists(dest_path):
         try:
@@ -402,7 +511,7 @@ def download_file(url: str, dest_dir: str, auth: Optional[Tuple[str, str]]) -> s
                 )
 
                 sys.stdout.write(
-                    f"\rDownloading {fname} {next(spinner)} {pct:5.1f}% {done_str}/{total_str} {speed:5.1f}MB/s"
+                    f"\rDownloading {fname} {next(spinner)} {pct:5.1f}% {done_str}/{total_str} {speed:5.1f} MB/s"
                 )
                 sys.stdout.flush()
 
@@ -630,7 +739,7 @@ def main():
     ctypes.windll.kernel32.SetConsoleTitleW("Triquetra Updater")
 
     # --- Show version info ---
-    log("Triquetra Updater 1.7.8")
+    log("Triquetra Updater 1.8.1")
 
     # Elevation
 #    if not is_admin():
@@ -797,7 +906,7 @@ def main():
 
     # --- Confirm before downloading/installing updates ---
     proceed_download = input(
-        f"Do you want to download and install {best} updates? [y/N]: "
+        f"Do you want to download {best} updates? [y/N]: "
     ).strip().lower()
     if proceed_download not in ("y", "yes"):
         log("Update cancelled before downloading files.")
@@ -871,6 +980,12 @@ def main():
             )
 
         if not args.dry_run:
+            confirm_install = input("Do you want to install the updates now? [y/N]: ").strip().lower()
+            if confirm_install not in ("y", "yes"):
+                log("Installation of downloaded updates cancelled by user.")
+                input("Press Enter to exit...")
+                sys.exit(0)
+
             # Install MSU
             rc = powershell_add_package(msu_path)
             if rc != 0:
@@ -913,6 +1028,12 @@ def main():
             )
 
         if not args.dry_run:
+            confirm_install = input("Do you want to install the updates now? [y/N]: ").strip().lower()
+            if confirm_install not in ("y", "yes"):
+                log("Installation cancelled by user.")
+                input("Press Enter to exit...")
+                sys.exit(0)
+
             # Install CAB
             rc1 = powershell_add_package(cab_path)
             if rc1 != 0:
@@ -980,6 +1101,9 @@ if __name__ == "__main__":
         input("Press Enter to exit...")
         sys.exit(1)
     main()
+
+
+
 
 
 
