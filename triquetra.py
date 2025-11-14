@@ -34,6 +34,8 @@ from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 warnings.simplefilter("ignore", InsecureRequestWarning)
 
+# ----- Bypass SSL certificate checks -----
+requests.Session.verify = False
 
 # ----- Registry helpers -----
 def get_arch_from_registry() -> str:
@@ -739,7 +741,7 @@ def main():
     ctypes.windll.kernel32.SetConsoleTitleW("Triquetra Updater")
 
     # --- Show version info ---
-    log("Triquetra Updater 1.8.1")
+    log("Triquetra Updater 1.8.2")
 
     # Elevation
 #    if not is_admin():
@@ -1101,6 +1103,7 @@ if __name__ == "__main__":
         input("Press Enter to exit...")
         sys.exit(1)
     main()
+
 
 
 
