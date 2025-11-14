@@ -719,6 +719,7 @@ def check_and_offer_enablement_package(local_major, local_parts, auth, arch, arg
 # ----- Main program -----
 def main():
     parser = argparse.ArgumentParser(description="Windows 11 updater using h5ai-hosted files")
+    parser.add_argument("--failsafe",action="store_true",help="Bypass self-update, skip mirror tests, and use http://updates.smce.pl for updates")
     parser.add_argument("--base-url", default="https://updates.smce.pl/", help="Base URL of h5ai index")
     parser.add_argument("--user", default="w11updater", help="HTTP Basic Auth username")
     parser.add_argument("--password", default="w11updater", help="HTTP Basic Auth password")
@@ -757,10 +758,13 @@ def main():
 
     # Self-update
     try:
-        if is_frozen():
+        if is_frozen() and not args.failsafe:
             self_update("https://updates.smce.pl/triquetra.exe", auth)
+        elif args.failsafe:
+            log("Failsafe mode: skipping self-update check.")
     except Exception as e:
         log(f"Self-update check failed (continuing): {e}")
+
 
     proceed = input("Proceed with checking for updates? [y/N]: ").strip().lower()
     if proceed not in ("y", "yes"):
@@ -778,14 +782,17 @@ def main():
     log(f"Local build: {short_local}")
 
     # --- Mirror selection ---
-    mirror_candidates = [
-        args.base_url.rstrip("/") + "/",     # primary
-        "https://updates2.smce.pl/",         # mirror
-    ]
-
-    # Automatically choose the fastest mirror
-    base_url = choose_fastest_mirror(mirror_candidates, auth)
-
+    if args.failsafe:
+        base_url = "http://updates.smce.pl/"
+        log(f"Failsafe mode: using base URL {base_url}")
+    else:
+        mirror_candidates = [
+            args.base_url.rstrip("/") + "/",     # primary
+            "https://updates2.smce.pl/",         # mirror
+        ]
+        # Automatically choose the fastest mirror
+        base_url = choose_fastest_mirror(mirror_candidates, auth)
+        
     html = None
     try:
         html = fetch_text(base_url, auth=auth)
@@ -1101,3 +1108,4 @@ if __name__ == "__main__":
         input("Press Enter to exit...")
         sys.exit(1)
     main()
+
