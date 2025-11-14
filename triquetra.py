@@ -740,7 +740,7 @@ def main():
     ctypes.windll.kernel32.SetConsoleTitleW("Triquetra Updater")
 
     # --- Show version info ---
-    log("Triquetra Updater 1.8.2")
+    log("Triquetra Updater 1.8.5")
 
     # Elevation
 #    if not is_admin():
@@ -1108,5 +1108,3 @@ if __name__ == "__main__":
         input("Press Enter to exit...")
         sys.exit(1)
     main()
-
-
