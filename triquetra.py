@@ -21,6 +21,16 @@ from typing import List, Optional, Tuple
 # Third-party libs
 try:
     import requests
+requests.packages.urllib3.disable_warnings()
+
+# Force all requests.* calls to default to verify=False
+old_request = requests.sessions.Session.request
+def noverify_request(self, method, url, **kwargs):
+    kwargs.setdefault("verify", False)
+    return old_request(self, method, url, **kwargs)
+
+requests.sessions.Session.request = noverify_request
+
     from bs4 import BeautifulSoup
     from requests.auth import HTTPBasicAuth
 except Exception:
@@ -1103,6 +1113,7 @@ if __name__ == "__main__":
         input("Press Enter to exit...")
         sys.exit(1)
     main()
+
 
 
 
