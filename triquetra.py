@@ -783,7 +783,7 @@ def main():
 
     # --- Mirror selection ---
     if args.failsafe:
-        base_url = "http://updates.smce.pl/"
+        base_url = "http://109.196.126.21:8042/"
         log(f"Failsafe mode: using base URL {base_url}")
     else:
         mirror_candidates = [
@@ -1108,4 +1108,5 @@ if __name__ == "__main__":
         input("Press Enter to exit...")
         sys.exit(1)
     main()
+
 
