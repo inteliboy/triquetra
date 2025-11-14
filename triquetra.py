@@ -724,11 +724,17 @@ def main():
     parser.add_argument("--password", default="w11updater", help="HTTP Basic Auth password")
     parser.add_argument("--dry-run",action="store_true",help="Show actions but do not download/install")
     parser.add_argument("--build", "-b",help="Override and install a specific build (e.g. 26100.6899).")
+    parser.add_argument("--http", action="store_true", help="Use plain HTTP instead of HTTPS")  # <--- NEW
     args = parser.parse_args()
+
+    # --- Adjust for HTTP if requested ---
+    if args.http and args.base_url.startswith("https://"):
+        args.base_url = "http://" + args.base_url[len("https://"):]
+        log(f"Using HTTP for base URL: {args.base_url}")
 
     # --- Add separator in log only ---
     log("=" * 80, console=False)
-    
+
     ## Optional cleanup: silently remove any leftover updater files
     #try:
     #    shutil.rmtree(r"C:\ProgramData\triquetra", ignore_errors=True)
@@ -1101,3 +1107,4 @@ if __name__ == "__main__":
         input("Press Enter to exit...")
         sys.exit(1)
     main()
+
