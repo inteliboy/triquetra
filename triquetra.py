@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 r"""
 triquetra.py
 """
@@ -293,12 +293,6 @@ def choose_fastest_mirror(mirrors: List[str], auth: Optional[Tuple[str, str]]) -
 
     return best_mirror
 
-
-def maybe_http(url: str, use_http: bool) -> str:
-    import re
-    if use_http:
-        return re.sub(r'^https:', 'http:', url, count=1)
-    return url
 
 # ----- HTTP helpers -----
 def fetch_text(url: str, auth: Optional[Tuple[str, str]], timeout: int = 30) -> str:
@@ -669,12 +663,12 @@ def check_and_offer_enablement_package(local_major, local_parts, auth, arch, arg
 
     EP_URLS = {
         "22621": {
-            "amd64": maybe_http("https://updates.smce.pl/EP/amd64/Windows11.0-KB5027397-x64.cab", args.http),
-            "arm64": maybe_http("https://updates.smce.pl/EP/arm64/Windows11.0-KB5027397-arm64.cab", args.http),
+            "amd64": "https://updates.smce.pl/EP/amd64/Windows11.0-KB5027397-x64.cab",
+            "arm64": "https://updates.smce.pl/EP/arm64/Windows11.0-KB5027397-arm64.cab",
         },
         "26100": {
-            "amd64": maybe_http("https://updates.smce.pl/EP/amd64/Windows11.0-KB5054156-x64.cab", args.http),
-            "arm64": maybe_http("https://updates.smce.pl/EP/arm64/Windows11.0-KB5054156-arm64.cab", args.http),
+            "amd64": "https://updates.smce.pl/EP/amd64/Windows11.0-KB5054156-x64.cab",
+            "arm64": "https://updates.smce.pl/EP/arm64/Windows11.0-KB5054156-arm64.cab",
         },
     }
 
@@ -725,8 +719,7 @@ def check_and_offer_enablement_package(local_major, local_parts, auth, arch, arg
 # ----- Main program -----
 def main():
     parser = argparse.ArgumentParser(description="Windows 11 updater using h5ai-hosted files")
-    parser.add_argument('--http', action='store_true', help='Force all URLs to use HTTP instead of HTTPS')
-    parser.add_argument("--base-url", default=maybe_http("https://updates.smce.pl/", args.http), help="Base URL of h5ai index")
+    parser.add_argument("--base-url", default="https://updates.smce.pl/", help="Base URL of h5ai index")
     parser.add_argument("--user", default="w11updater", help="HTTP Basic Auth username")
     parser.add_argument("--password", default="w11updater", help="HTTP Basic Auth password")
     parser.add_argument("--dry-run",action="store_true",help="Show actions but do not download/install")
@@ -746,7 +739,7 @@ def main():
     ctypes.windll.kernel32.SetConsoleTitleW("Triquetra Updater")
 
     # --- Show version info ---
-    log("Triquetra Updater 1.8.1")
+    log("Triquetra Updater 1.8.2")
 
     # Elevation
 #    if not is_admin():
@@ -765,7 +758,7 @@ def main():
     # Self-update
     try:
         if is_frozen():
-            self_update(maybe_http("https://updates.smce.pl/triquetra.exe", args.http), auth)
+            self_update("https://updates.smce.pl/triquetra.exe", auth)
     except Exception as e:
         log(f"Self-update check failed (continuing): {e}")
 
@@ -787,7 +780,7 @@ def main():
     # --- Mirror selection ---
     mirror_candidates = [
         args.base_url.rstrip("/") + "/",     # primary
-        maybe_http("https://updates2.smce.pl/", args.http),         # mirror
+        "https://updates2.smce.pl/",         # mirror
     ]
 
     # Automatically choose the fastest mirror
@@ -927,12 +920,12 @@ def main():
     # EP URLs
     EP_URLS = {
         "22621": {
-            "amd64": maybe_http("https://updates.smce.pl/EP/amd64/Windows11.0-KB5027397-x64.cab", args.http),
-            "arm64": maybe_http("https://updates.smce.pl/EP/arm64/Windows11.0-KB5027397-arm64.cab", args.http),
+            "amd64": "https://updates.smce.pl/EP/amd64/Windows11.0-KB5027397-x64.cab",
+            "arm64": "https://updates.smce.pl/EP/arm64/Windows11.0-KB5027397-arm64.cab",
         },
         "26100": {
-            "amd64": maybe_http("https://updates.smce.pl/EP/amd64/Windows11.0-KB5054156-x64.cab", args.http),
-            "arm64": maybe_http("https://updates.smce.pl/EP/arm64/Windows11.0-KB5054156-arm64.cab", args.http),
+            "amd64": "https://updates.smce.pl/EP/amd64/Windows11.0-KB5054156-x64.cab",
+            "arm64": "https://updates.smce.pl/EP/arm64/Windows11.0-KB5054156-arm64.cab",
         },
     }
 
@@ -1108,11 +1101,3 @@ if __name__ == "__main__":
         input("Press Enter to exit...")
         sys.exit(1)
     main()
-
-
-
-
-
-
-
-
