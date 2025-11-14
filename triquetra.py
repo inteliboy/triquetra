@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 r"""
 triquetra.py
 """
@@ -21,16 +21,6 @@ from typing import List, Optional, Tuple
 # Third-party libs
 try:
     import requests
-requests.packages.urllib3.disable_warnings()
-
-# Force all requests.* calls to default to verify=False
-old_request = requests.sessions.Session.request
-def noverify_request(self, method, url, **kwargs):
-    kwargs.setdefault("verify", False)
-    return old_request(self, method, url, **kwargs)
-
-requests.sessions.Session.request = noverify_request
-
     from bs4 import BeautifulSoup
     from requests.auth import HTTPBasicAuth
 except Exception:
@@ -41,11 +31,7 @@ except Exception:
 
 # ----- Suppress InsecureRequestWarning -----
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
-
 warnings.simplefilter("ignore", InsecureRequestWarning)
-
-# ----- Bypass SSL certificate checks -----
-requests.Session.verify = False
 
 # ----- Registry helpers -----
 def get_arch_from_registry() -> str:
@@ -121,11 +107,8 @@ os.makedirs(PROGRAMDATA_DIR, exist_ok=True)
 LOG_FILE = os.path.join(PROGRAMDATA_DIR, "triquetra.log")
 TMP_DIR = PROGRAMDATA_DIR
 
-
-
 def now_ts() -> str:
     return time.strftime("%Y-%m-%d %H:%M:%SZ", time.gmtime())
-
 
 def log(msg: str, console: bool = True):
     entry = msg
@@ -145,7 +128,6 @@ def is_admin() -> bool:
     except Exception:
         return False
 
-
 def elevate_and_exit():
     python_exe = sys.executable
     params = " ".join(f'"{p}"' for p in sys.argv[1:])
@@ -158,6 +140,13 @@ def elevate_and_exit():
         log(f"Failed to relaunch elevated: {e}")
         input("Press Enter to exit...")
         sys.exit(1)
+
+
+# ----- Helper: rewrite URL for HTTP -----
+def rewrite_url(url: str, use_http: bool) -> str:
+    if use_http and url.startswith("https://"):
+        return "http://" + url[len("https://"):]
+    return url
 
 
 # ----- ntoskrnl.exe version replaced with registry -----
@@ -175,7 +164,6 @@ def get_ntoskrnl_file_version() -> Optional[str]:
         ubr, _ = winreg.QueryValueEx(key, "UBR")
         key.Close()
 
-        # BuildLab format: '26100.1.amd64fre.somehash'
         build_match = re.match(r"(\d+)\.", buildlab)
         if not build_match:
             log(f"Unexpected BuildLab format: {buildlab}")
@@ -189,24 +177,16 @@ def get_ntoskrnl_file_version() -> Optional[str]:
         log(f"Failed to read BuildLab/UBR from registry: {e}")
         return None
 
-
 def normalize_local_to_short(full_ver: str) -> Tuple[str, List[int]]:
-    """
-    Convert a full version string to a 'short' list of integers for comparison.
-    Handles registry-based 'BuildLab + UBR' style (e.g., '26100.6130').
-    """
     nums = re.findall(r"\d+", full_ver)
     if not nums:
         return full_ver, []
 
-    # Only keep the first two numbers (major + minor/build)
     short_parts = [int(nums[0])]
     if len(nums) > 1:
         short_parts.append(int(nums[1]))
-
     short_str = ".".join(str(x) for x in short_parts)
     return short_str, short_parts
-
 
 def compare_version_lists(a: List[int], b: List[int]) -> int:
     maxlen = max(len(a), len(b))
@@ -219,105 +199,19 @@ def compare_version_lists(a: List[int], b: List[int]) -> int:
             return -1
     return 0
 
-def try_mirrors(paths: List[str], auth: Optional[Tuple[str, str]]) -> str:
-    """
-    Try a list of mirror URLs and return the first that responds successfully.
-    """
-    for base in paths:
-        try:
-            log(f"Testing server: {base}")
-            html = fetch_text(base, auth=auth, timeout=10)
-            log(f"Server available: {base}")
-            return base  # Return the working base URL (with trailing /)
-        except Exception as e:
-            log(f"Server failed: {base} ({e})")
-    log("All servers failed. Exiting.")
-    input("Press Enter to exit...")
-    sys.exit(1)
-    
-def choose_fastest_mirror(mirrors: List[str], auth: Optional[Tuple[str, str]]) -> str:
-    """
-    Test mirror download speeds using a small test file (e.g., speed.test)
-    and return the fastest one, with a clean spinner and concise output.
-    """
-    import itertools, sys, threading, time
-
-    test_file = "speed.test"
-    results = []
-    spinner_running = True
-
-    def spinner_func():
-        spinner = itertools.cycle(["|", "/", "-", "\\"])
-        while spinner_running:
-            sys.stdout.write(f"\rTesting mirrors speed... {next(spinner)}")
-            sys.stdout.flush()
-            time.sleep(0.1)
-
-    spinner_thread = threading.Thread(target=spinner_func)
-    spinner_thread.daemon = True
-    spinner_thread.start()
-
-    # --- Measure mirror speeds ---
-    for base in mirrors:
-        test_url = urllib.parse.urljoin(base, test_file)
-        try:
-            r = requests.get(
-                test_url,
-                auth=HTTPBasicAuth(*auth) if auth else None,
-                timeout=10,
-                stream=True,
-                verify=True,
-            )
-            r.raise_for_status()
-
-            total_bytes = 0
-            t0 = time.time()
-            for chunk in r.iter_content(chunk_size=65536):
-                if not chunk:
-                    break
-                total_bytes += len(chunk)
-                if total_bytes > 1024 * 1024:  # only first ~1 MB
-                    break
-            elapsed = time.time() - t0
-            speed_mbs = total_bytes / (elapsed * 1024 * 1024) if elapsed > 0 else 0
-            results.append((speed_mbs, base))
-        except Exception:
-            results.append((0, base))
-
-    # --- Stop spinner ---
-    spinner_running = False
-    spinner_thread.join(timeout=0.2)
-    sys.stdout.write("\rTesting mirrors speed...\n")
-    sys.stdout.flush()
-
-    # --- Print results (compact, no blank lines) ---
-    for speed, base in results:
-        print(f"{base} speed: {speed_mbs:5.1f} MB/s")
-
-    # --- Pick the fastest ---
-    if not results or all(speed == 0 for speed, _ in results):
-        log("No mirrors responded successfully. Exiting.")
-        input("Press Enter to exit...")
-        sys.exit(1)
-
-    results.sort(reverse=True, key=lambda x: x[0])
-    best_speed, best_mirror = results[0]
-
-    return best_mirror
-
-
 # ----- HTTP helpers -----
-def fetch_text(url: str, auth: Optional[Tuple[str, str]], timeout: int = 30) -> str:
+def fetch_text(url: str, auth: Optional[Tuple[str, str]], use_http=False, timeout: int = 30) -> str:
+    url = rewrite_url(url, use_http)
     auth_obj = HTTPBasicAuth(*auth) if auth else None
-    r = requests.get(url, auth=auth_obj, timeout=timeout, verify=True)
+    r = requests.get(url, auth=auth_obj, timeout=timeout, verify=not use_http)
     r.raise_for_status()
     return r.text
-    
-def remote_file_exists(url: str, auth: Optional[Tuple[str, str]], timeout: int = 10) -> bool:
-    """Return True if the given remote file exists (HTTP 200)."""
+
+def remote_file_exists(url: str, auth: Optional[Tuple[str, str]], use_http=False, timeout: int = 10) -> bool:
+    url = rewrite_url(url, use_http)
     auth_obj = HTTPBasicAuth(*auth) if auth else None
     try:
-        r = requests.head(url, auth=auth_obj, timeout=timeout, verify=True)
+        r = requests.head(url, auth=auth_obj, timeout=timeout, verify=not use_http)
         return r.status_code == 200
     except Exception:
         return False
@@ -347,7 +241,6 @@ def parse_h5ai_index_for_folders(html_text: str) -> List[str]:
     folders.sort(key=lambda v: tuple(int(x) for x in v.split(".")))
     return folders
 
-
 def parse_h5ai_files(html_text: str) -> List[str]:
     files = []
     soup = BeautifulSoup(html_text, "html.parser")
@@ -358,15 +251,7 @@ def parse_h5ai_files(html_text: str) -> List[str]:
         files.append(urllib.parse.unquote(href.split("/")[-1]))
     return sorted(set(files))
 
-
 # ----- Download with MD5 check -----
-def fetch_md5(url: str, auth: Optional[Tuple[str, str]]) -> str:
-    txt = fetch_text(url, auth)
-    line = txt.strip()
-    md5val = line.split()[0]
-    return md5val.lower()
-
-
 def file_md5(path: str) -> str:
     h = hashlib.md5()
     with open(path, "rb") as f:
@@ -374,12 +259,15 @@ def file_md5(path: str) -> str:
             h.update(chunk)
     return h.hexdigest()
 
+def fetch_md5(url: str, auth: Optional[Tuple[str, str]], use_http=False) -> str:
+    txt = fetch_text(url, auth, use_http)
+    line = txt.strip()
+    md5val = line.split()[0]
+    return md5val.lower()
 
-def download_file(url: str, dest_dir: str, auth: Optional[Tuple[str, str]]) -> str:
-    """Download a file with progress and retry option if download fails."""
-    import requests, itertools, sys, time, os, urllib.parse
-    from requests.auth import HTTPBasicAuth
-
+def download_file(url: str, dest_dir: str, auth: Optional[Tuple[str, str]], use_http=False) -> str:
+    import itertools, sys, time
+    url = rewrite_url(url, use_http)
     fname = os.path.basename(urllib.parse.unquote(url))
     dest_path = os.path.join(dest_dir, fname)
     md5_url = url + ".md5"
@@ -388,11 +276,9 @@ def download_file(url: str, dest_dir: str, auth: Optional[Tuple[str, str]]) -> s
     while True:
         try:
             need_download = True
-
-            # --- Check MD5 if file exists ---
             if os.path.exists(dest_path):
                 try:
-                    md5_server = fetch_md5(md5_url, auth)
+                    md5_server = fetch_md5(md5_url, auth, use_http)
                     md5_local = file_md5(dest_path)
                     if md5_local.lower() == md5_server.lower():
                         log(f"{fname} already exists and hash matches.")
@@ -406,7 +292,7 @@ def download_file(url: str, dest_dir: str, auth: Optional[Tuple[str, str]]) -> s
             log(f"Downloading {fname}...")
             auth_obj = HTTPBasicAuth(*auth) if auth else None
 
-            with requests.get(url, stream=True, auth=auth_obj, verify=True, timeout=60) as r:
+            with requests.get(url, stream=True, auth=auth_obj, verify=not use_http, timeout=60) as r:
                 r.raise_for_status()
                 total = r.headers.get("Content-Length")
                 total_i = int(total) if total and total.isdigit() else None
@@ -433,7 +319,6 @@ def download_file(url: str, dest_dir: str, auth: Optional[Tuple[str, str]]) -> s
                             )
                         else:
                             pct, total_str = 0, "?"
-
                         done_str = (
                             f"{downloaded / 1024 / 1024 / 1024:.2f}G"
                             if downloaded > 1024**3
@@ -456,7 +341,6 @@ def download_file(url: str, dest_dir: str, auth: Optional[Tuple[str, str]]) -> s
             sys.stdout.flush()
             log(f"Download of {fname} failed: {e}")
 
-            # Ask user if they want to retry
             ans = input(f"Download failed for {fname}. Retry? [y/N]: ").strip().lower()
             if ans not in ("y", "yes"):
                 log(f"User chose not to retry {fname}. Aborting download.")
@@ -468,7 +352,6 @@ def download_file(url: str, dest_dir: str, auth: Optional[Tuple[str, str]]) -> s
                     raise
                 log(f"Retrying download of {fname}...")
                 time.sleep(3)
-
    
     # --- Check MD5 ---
     if os.path.exists(dest_path):
@@ -736,6 +619,7 @@ def main():
     parser.add_argument("--password", default="w11updater", help="HTTP Basic Auth password")
     parser.add_argument("--dry-run",action="store_true",help="Show actions but do not download/install")
     parser.add_argument("--build", "-b",help="Override and install a specific build (e.g. 26100.6899).")
+    parser.add_argument("--http",action="store_true",help="Use HTTP instead of HTTPS for all update URLs")
     args = parser.parse_args()
 
     # --- Add separator in log only ---
@@ -1113,6 +997,7 @@ if __name__ == "__main__":
         input("Press Enter to exit...")
         sys.exit(1)
     main()
+
 
 
 
