@@ -8,6 +8,7 @@ Personally I always disabled Windows Update, as I prefer installing updates manu
 I will try to add new features when I can, however, some tasks might be beyond me.
 
 The new builds are automatically uploaded to the servers once a new UUP build is detected on the uupdump.net. It takes about 35 minutes per update for one architecture, so around 2 hours for Windows 11 23H2 amd64 + arm64 and Windows 11 25H2 amd64 + arch64 updates to be availabe in Triquetra.
+
 Name and logo has been inspired by the German series Dark on Netflix.
 
 Triquetra in action
