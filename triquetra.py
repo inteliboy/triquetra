@@ -206,22 +206,6 @@ def compare_version_lists(a: List[int], b: List[int]) -> int:
             return -1
     return 0
 
-def try_mirrors(paths: List[str], auth: Optional[Tuple[str, str]]) -> str:
-    """
-    Try a list of mirror URLs and return the first that responds successfully.
-    """
-    for base in paths:
-        try:
-            log(f"Testing server: {base}")
-            html = fetch_text(base, auth=auth, timeout=10)
-            log(f"Server available: {base}")
-            return base  # Return the working base URL (with trailing /)
-        except Exception as e:
-            log(f"Server failed: {base} ({e})")
-    log("All servers failed. Exiting.")
-    input("Press Enter to exit...")
-    sys.exit(1)
-    
 def choose_fastest_mirror(mirrors: List[str], auth: Optional[Tuple[str, str]]) -> str:
     """
     Test mirror download speeds using a small test file (e.g., speed.test)
@@ -1107,4 +1091,5 @@ if __name__ == "__main__":
         input("Press Enter to exit...")
         sys.exit(1)
     main()
+
 
