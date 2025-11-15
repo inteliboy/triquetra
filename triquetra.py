@@ -30,10 +30,9 @@ except Exception:
     sys.exit(1)
 
 # ----- Suppress InsecureRequestWarning -----
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
+from urllib3.exceptions import InsecureRequestWarning
 
 warnings.simplefilter("ignore", InsecureRequestWarning)
-
 
 # ----- Registry helpers -----
 def get_arch_from_registry() -> str:
@@ -1108,3 +1107,4 @@ if __name__ == "__main__":
         input("Press Enter to exit...")
         sys.exit(1)
     main()
+
