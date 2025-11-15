@@ -440,71 +440,6 @@ def download_file(url: str, dest_dir: str, auth: Optional[Tuple[str, str]]) -> s
                 log(f"Retrying download of {fname}...")
                 time.sleep(3)
 
-   
-    # --- Check MD5 ---
-    if os.path.exists(dest_path):
-        try:
-            md5_server = fetch_md5(md5_url, auth)
-            md5_local = file_md5(dest_path)
-            if md5_local.lower() == md5_server.lower():
-                log(f"{fname} already exists and hash matches.")
-                need_download = False
-        except Exception:
-            log(f"Could not verify hash for {fname}, will redownload.")
-
-    if not need_download:
-        return dest_path
-
-    log(f"Downloading {fname}...")  # log start
-    auth_obj = HTTPBasicAuth(*auth) if auth else None
-
-    with requests.get(url, stream=True, auth=auth_obj, verify=True) as r:
-        r.raise_for_status()
-        total = r.headers.get("Content-Length")
-        total_i = int(total) if total and total.isdigit() else None
-        downloaded = 0
-        chunk_size = 1024 * 1024  # 1MB
-        spinner = itertools.cycle(["|", "/", "-", "\\"])
-        start_time = time.time()
-
-        with open(dest_path, "wb") as f:
-            while True:
-                chunk = r.raw.read(chunk_size)
-                if not chunk:
-                    break
-                f.write(chunk)
-                downloaded += len(chunk)
-                elapsed = time.time() - start_time
-                speed = downloaded / 1024 / 1024 / elapsed if elapsed > 0 else 0
-
-                if total_i:
-                    pct = (downloaded / total_i) * 100
-                    total_str = (
-                        f"{total_i / 1024 / 1024 / 1024:.2f}G"
-                        if total_i > 1024**3
-                        else f"{total_i / 1024 / 1024:.2f}M"
-                    )
-                else:
-                    pct, total_str = 0, "?"
-
-                done_str = (
-                    f"{downloaded / 1024 / 1024 / 1024:.2f}G"
-                    if downloaded > 1024**3
-                    else f"{downloaded / 1024 / 1024:.2f}M"
-                )
-
-                sys.stdout.write(
-                    f"\rDownloading {fname} {next(spinner)} {pct:5.1f}% {done_str}/{total_str} {speed:5.1f} MB/s"
-                )
-                sys.stdout.flush()
-
-        # Replace progress line with final "... Done" via log()
-        sys.stdout.write("\r" + " " * 120 + "\r")  # clear line
-        sys.stdout.flush()
-        log(f"Finished downloading {fname}")
-
-    return dest_path
-
 # ----- Utility functions -----
 def is_frozen() -> bool:
     """Return True if running as a compiled EXE (Nuitka, PyInstaller, cx_Freeze)."""
@@ -1091,5 +1026,6 @@ if __name__ == "__main__":
         input("Press Enter to exit...")
         sys.exit(1)
     main()
+
 
 
