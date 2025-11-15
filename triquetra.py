@@ -99,7 +99,6 @@ def check_not_server_os():
         log(f"Failed to check OS type: {e}")
         # Fail-safe: continue, assuming non-server
 
-
 # ----- Logging helper -----
 PROGRAMDATA_DIR = r"C:\ProgramData\triquetra"
 os.makedirs(PROGRAMDATA_DIR, exist_ok=True)
@@ -108,11 +107,8 @@ os.makedirs(PROGRAMDATA_DIR, exist_ok=True)
 LOG_FILE = os.path.join(PROGRAMDATA_DIR, "triquetra.log")
 TMP_DIR = PROGRAMDATA_DIR
 
-
-
 def now_ts() -> str:
     return time.strftime("%Y-%m-%d %H:%M:%SZ", time.gmtime())
-
 
 def log(msg: str, console: bool = True):
     entry = msg
@@ -124,14 +120,12 @@ def log(msg: str, console: bool = True):
     if console:
         print(entry)
 
-
 # ----- Elevation -----
 def is_admin() -> bool:
     try:
         return ctypes.windll.shell32.IsUserAnAdmin() != 0
     except Exception:
         return False
-
 
 def elevate_and_exit():
     python_exe = sys.executable
@@ -146,11 +140,9 @@ def elevate_and_exit():
         input("Press Enter to exit...")
         sys.exit(1)
 
-
-# ----- ntoskrnl.exe version replaced with registry -----
-def get_ntoskrnl_file_version() -> Optional[str]:
+# ----- registry based check for local build version -----
+def get_local_build_version() -> Optional[str]:
     """
-    Replace file-based ntoskrnl.exe version check with registry-based.
     Combines BuildLab first part and UBR to produce '26100.6130'-style version.
     """
     try:
@@ -176,7 +168,6 @@ def get_ntoskrnl_file_version() -> Optional[str]:
         log(f"Failed to read BuildLab/UBR from registry: {e}")
         return None
 
-
 def normalize_local_to_short(full_ver: str) -> Tuple[str, List[int]]:
     """
     Convert a full version string to a 'short' list of integers for comparison.
@@ -193,7 +184,6 @@ def normalize_local_to_short(full_ver: str) -> Tuple[str, List[int]]:
 
     short_str = ".".join(str(x) for x in short_parts)
     return short_str, short_parts
-
 
 def compare_version_lists(a: List[int], b: List[int]) -> int:
     maxlen = max(len(a), len(b))
@@ -276,7 +266,6 @@ def choose_fastest_mirror(mirrors: List[str], auth: Optional[Tuple[str, str]]) -
 
     return best_mirror
 
-
 # ----- HTTP helpers -----
 def fetch_text(url: str, auth: Optional[Tuple[str, str]], timeout: int = 30) -> str:
     auth_obj = HTTPBasicAuth(*auth) if auth else None
@@ -318,7 +307,6 @@ def parse_h5ai_index_for_folders(html_text: str) -> List[str]:
     folders.sort(key=lambda v: tuple(int(x) for x in v.split(".")))
     return folders
 
-
 def parse_h5ai_files(html_text: str) -> List[str]:
     files = []
     soup = BeautifulSoup(html_text, "html.parser")
@@ -329,7 +317,6 @@ def parse_h5ai_files(html_text: str) -> List[str]:
         files.append(urllib.parse.unquote(href.split("/")[-1]))
     return sorted(set(files))
 
-
 # ----- Download with MD5 check -----
 def fetch_md5(url: str, auth: Optional[Tuple[str, str]]) -> str:
     txt = fetch_text(url, auth)
@@ -337,14 +324,12 @@ def fetch_md5(url: str, auth: Optional[Tuple[str, str]]) -> str:
     md5val = line.split()[0]
     return md5val.lower()
 
-
 def file_md5(path: str) -> str:
     h = hashlib.md5()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(8192), b""):
             h.update(chunk)
     return h.hexdigest()
-
 
 def download_file(url: str, dest_dir: str, auth: Optional[Tuple[str, str]]) -> str:
     """Download a file with progress and retry option if download fails."""
@@ -526,7 +511,6 @@ def self_update(remote_url: str, auth: Optional[Tuple[str, str]]) -> bool:
         log(f"Self-update failed: {e}")
         return False
 
-
 def powershell_add_package(package_path: str) -> int:
     """Install a Windows package (.cab/.msu) with a single clean spinner line and synced logging."""
     import subprocess, itertools, sys, time, os
@@ -571,7 +555,6 @@ def powershell_add_package(package_path: str) -> int:
     log(f"Finished installing {pkg_name}")
 
     return proc.returncode
-
 
 def check_and_offer_enablement_package(local_major, local_parts, auth, arch, args):
     """Check DisplayVersion and offer Enablement Package if eligible."""
@@ -633,7 +616,6 @@ def check_and_offer_enablement_package(local_major, local_parts, auth, arch, arg
             reason = "unknown reason"
         log(f"Not offering Enablement Package due to {reason}")
 
-
 # ----- Main program -----
 def main():
     parser = argparse.ArgumentParser(description="Windows 11 updater using h5ai-hosted files")
@@ -647,12 +629,6 @@ def main():
 
     # --- Add separator in log only ---
     log("=" * 80, console=False)
-    
-    ## Optional cleanup: silently remove any leftover updater files
-    #try:
-    #    shutil.rmtree(r"C:\ProgramData\triquetra", ignore_errors=True)
-    #except Exception:
-    #    pass
 
     # --- Set window title ---
     ctypes.windll.kernel32.SetConsoleTitleW("Triquetra Updater")
@@ -683,16 +659,15 @@ def main():
     except Exception as e:
         log(f"Self-update check failed (continuing): {e}")
 
-
     proceed = input("Proceed with checking for updates? [y/N]: ").strip().lower()
     if proceed not in ("y", "yes"):
         log("Update cancelled by user.")
         input("Press Enter to exit...")
         sys.exit(0)
 
-    full_ver = get_ntoskrnl_file_version()
+    full_ver = get_local_build_version()
     if not full_ver:
-        log("ERROR: could not read ntoskrnl.exe version")
+        log("ERROR: could not check local build version")
         input("Press Enter to exit...")
         sys.exit(1)
 
@@ -827,7 +802,6 @@ def main():
         log("Local build newer than remote, exiting.")
         input("Press Enter to exit...")
         sys.exit(0)
-
 
     # --- Confirm before downloading/installing updates ---
     proceed_download = input(
@@ -1019,14 +993,9 @@ def main():
 
     input("Press Enter to exit...")
 
-
 if __name__ == "__main__":
     if sys.platform != "win32":
         print("This program is intended to run on Windows.")
         input("Press Enter to exit...")
         sys.exit(1)
     main()
-
-
-
-
