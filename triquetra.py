@@ -237,7 +237,7 @@ def choose_fastest_mirror(mirrors: List[str], auth: Optional[Tuple[str, str]]) -
                 auth=HTTPBasicAuth(*auth) if auth else None,
                 timeout=10,
                 stream=True,
-                verify=True,
+                verify=False,
             )
             r.raise_for_status()
 
@@ -280,7 +280,7 @@ def choose_fastest_mirror(mirrors: List[str], auth: Optional[Tuple[str, str]]) -
 # ----- HTTP helpers -----
 def fetch_text(url: str, auth: Optional[Tuple[str, str]], timeout: int = 30) -> str:
     auth_obj = HTTPBasicAuth(*auth) if auth else None
-    r = requests.get(url, auth=auth_obj, timeout=timeout, verify=True)
+    r = requests.get(url, auth=auth_obj, timeout=timeout, verify=False)
     r.raise_for_status()
     return r.text
     
@@ -288,7 +288,7 @@ def remote_file_exists(url: str, auth: Optional[Tuple[str, str]], timeout: int =
     """Return True if the given remote file exists (HTTP 200)."""
     auth_obj = HTTPBasicAuth(*auth) if auth else None
     try:
-        r = requests.head(url, auth=auth_obj, timeout=timeout, verify=True)
+        r = requests.head(url, auth=auth_obj, timeout=timeout, verify=False)
         return r.status_code == 200
     except Exception:
         return False
@@ -377,7 +377,7 @@ def download_file(url: str, dest_dir: str, auth: Optional[Tuple[str, str]]) -> s
             log(f"Downloading {fname}...")
             auth_obj = HTTPBasicAuth(*auth) if auth else None
 
-            with requests.get(url, stream=True, auth=auth_obj, verify=True, timeout=60) as r:
+            with requests.get(url, stream=True, auth=auth_obj, verify=False, timeout=60) as r:
                 r.raise_for_status()
                 total = r.headers.get("Content-Length")
                 total_i = int(total) if total and total.isdigit() else None
@@ -1026,6 +1026,7 @@ if __name__ == "__main__":
         input("Press Enter to exit...")
         sys.exit(1)
     main()
+
 
 
 
