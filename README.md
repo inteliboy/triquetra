@@ -29,7 +29,7 @@ Triquetra will:
 * Check for Triquetra update on the basis of the exe hash and if available will update itself and re-launch.
 * Determine a local build of Windows 11. It will say 26100.XXXX even for 25H2 (26200.XXXX), that is not a problem.
 * Ask if you want to search for updates.
-* Connect to update server or a mirror (currently not available, but the feature is implemented).
+* Connect to update server or a mirror after determining which one is faster.
 * Scan for possible update candidates and select newest by default. To force a specific build from the ones available a flag needs to be used: --build 26100.XXXX
 * Ask if you want to download and install updates.
 * Download and install Servicing Stack (SSU), Cumulative Update (CU) and .NET Framework (NDP) updates.
