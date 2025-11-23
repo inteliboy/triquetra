@@ -25,7 +25,7 @@ Those updates come from UUP. I the use various scripts to extract WIM+PSF from t
 Triquetra will:
 * Create and operate in the C:\ProgramData\triquetra folder for updating itself, downloading updates and storing triquetra.log file.
 * Check for administrative rights at startup.
-* Check if the OS you are running it on is supported - only Client versions of Windows 11 22H2, 23H2, 24H2 and 25H2 are supported both for AMD64 and ARM64 - no support for Server and other editions.
+* Check if the OS you are running it on is supported - only Client versions of Windows 11 22H2, 23H2, 24H2, 25H2 and 26H1 are supported both for AMD64 and ARM64 - no support for Server and other editions.
 * Check for Triquetra update on the basis of the exe hash and if available will update itself and re-launch.
 * Determine a local build of Windows 11. It will say 26100.XXXX even for 25H2 (26200.XXXX), that is not a problem.
 * Ask if you want to search for updates.
